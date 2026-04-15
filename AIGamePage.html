@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connect Four AI</title>
+    <style>
+        :root {
+            --board-color: #2c3e50;
+            --empty-slot: #ecf0f1;
+            --player-color: #e74c3c;
+            --ai-color: #5594ec;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: bisque;
+        }
+
+        .controls {
+            margin: 20px;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        #board {
+            display: grid;
+            grid-template-columns: repeat(7, 60px);
+            grid-template-rows: repeat(6, 60px);
+            gap: 10px;
+            background-color: var(--board-color);
+            padding: 10px;
+            border-radius: 10px;
+            cursor: pointer;
+        }
+
+        .cell {
+            width: 60px;
+            height: 60px;
+            background-color: var(--empty-slot);
+            border-radius: 50%;
+            transition: background-color 0.3s;
+        }
+
+        .cell.player { background-color: var(--player-color); }
+        .cell.ai { background-color: var(--ai-color); }
+
+        .status {
+            margin: 20px;
+            font-size: 1.5rem;
+            font-weight: bold;
+            height: 2rem;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 1rem;
+            cursor: pointer;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 5px;
+        }
+
+        button:hover { background-color: #2980b9; }
+    </style>
+</head>
+<body>
+
+    <h1>Connect Four</h1>
+    <a href="fromScratch.html">Back to the fromScratch page</a>
+
+    <div class="controls">
+        <label for="difficulty">Difficulty (1-10): </label>
+        <input type="range" id="difficulty" min="1" max="10" value="5">
+        <span id="diff-val">5</span>
+        <button onclick="resetGame()">New Game</button>
+    </div>
+no
+    <div class="status" id="status">Your Turn</div>
+
+    <div id="board"></div>
+
+    <script>
+        const ROWS = 6;
+        const COLS = 7;
+        let board = [];
+        let gameOver = false;
+
+        const boardElement = document.getElementById('board');
+        const statusElement = document.getElementById('status');
+        const diffInput = document.getElementById('difficulty');
+        const diffVal = document.getElementById('diff-val');
+
+        diffInput.addEventListener('input', () => diffVal.innerText = diffInput.value);
+
+        function initBoard() {
+            board = Array(ROWS).fill().map(() => Array(COLS).fill(0));
+            boardElement.innerHTML = '';
+            for (let r = 0; r < ROWS; r++) {
+                for (let c = 0; c < COLS; c++) {
+                    const cell = document.createElement('div');
+                    cell.classList.add('cell');
+                    cell.dataset.row = r;
+                    cell.dataset.col = c;
+                    cell.onclick = () => handleMove(c);
+                    boardElement.appendChild(cell);
+                }
+            }
+            gameOver = false;
+            statusElement.innerText = "Your Turn";
+        }
+
+        function handleMove(col) {
+            if (gameOver) return;
+
+            if (makeMove(1, col)) {
+                updateDisplay();
+                if (checkWin(1)) {
+                    endGame("You Win!");
+                } else if (board.flat().every(cell => cell !== 0)) {
+                    endGame("It's a Draw!");
+                } else {
+                    statusElement.innerText = "Computer is thinking...";
+                    setTimeout(aiMove, 500);
+                }
+            }
+        }
+
+        function makeMove(player, col) {
+            for (let r = ROWS - 1; r >= 0; r--) {
+                if (board[r][col] === 0) {
+                    board[r][col] = player;
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        function aiMove() {
+            if (gameOver) return;
+            const diff = parseInt(diffInput.value);
+            let bestCol;
+
+            // Simple Logic: Difficulty 1 is random, higher is smarter
+            if (Math.random() * 10 > diff) {
+                const validCols = [...Array(COLS).keys()].filter(c => board[0][c] === 0);
+                bestCol = validCols[Math.floor(Math.random() * validCols.length)];
+            } else {
+                bestCol = getBestMove();
+            }
+
+            makeMove(2, bestCol);
+            updateDisplay();
+
+            if (checkWin(2)) {
+                endGame("Computer Wins!");
+            } else {
+                statusElement.innerText = "Your Turn";
+            }
+        }
+
+        function getBestMove() {
+            // Checks if AI can win in one move, then if it needs to block player
+            for (let c = 0; c < COLS; c++) {
+                if (canWin(2, c)) return c;
+            }
+            for (let c = 0; c < COLS; c++) {
+                if (canWin(1, c)) return c;
+            }
+            // Otherwise, center preference
+            const preferred = [3, 2, 4, 1, 5, 0, 6];
+            return preferred.find(c => board[0][c] === 0);
+        }
+
+        function canWin(player, col) {
+            for (let r = ROWS - 1; r >= 0; r--) {
+                if (board[r][col] === 0) {
+                    board[r][col] = player;
+                    const win = checkWin(player);
+                    board[r][col] = 0;
+                    return win;
+                }
+            }
+            return false;
+        }
+
+        function checkWin(p) {
+            // Horizontal
+            for (let r = 0; r < ROWS; r++) 
+                for (let c = 0; c < COLS - 3; c++) 
+                    if (board[r][c] == p && board[r][c+1] == p && board[r][c+2] == p && board[r][c+3] == p) return true;
+            // Vertical
+            for (let r = 0; r < ROWS - 3; r++) 
+                for (let c = 0; c < COLS; c++) 
+                    if (board[r][c] == p && board[r+1][c] == p && board[r+2][c] == p && board[r+3][c] == p) return true;
+            // Diagonal Down-Right
+            for (let r = 0; r < ROWS - 3; r++) 
+                for (let c = 0; c < COLS - 3; c++) 
+                    if (board[r][c] == p && board[r+1][c+1] == p && board[r+2][c+2] == p && board[r+3][c+3] == p) return true;
+            // Diagonal Up-Right
+            for (let r = 3; r < ROWS; r++) 
+                for (let c = 0; c < COLS - 3; c++) 
+                    if (board[r][c] == p && board[r-1][c+1] == p && board[r-2][c+2] == p && board[r-3][c+3] == p) return true;
+            return false;
+        }
+
+        function updateDisplay() {
+            const cells = document.querySelectorAll('.cell');
+            cells.forEach(cell => {
+                const r = cell.dataset.row;
+                const c = cell.dataset.col;
+                cell.className = 'cell' + (board[r][c] === 1 ? ' player' : board[r][c] === 2 ? ' ai' : '');
+            });
+        }
+
+        function endGame(msg) {
+            gameOver = true;
+            statusElement.innerText = msg;
+        }
+
+        function resetGame() {
+            initBoard();
+        }
+
+        initBoard();
+    </script>
+</body>
+</html>
